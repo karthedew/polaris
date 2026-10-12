@@ -528,6 +528,16 @@ public class FeatureConfiguration<T> extends PolarisConfiguration<T> {
           .defaultValue(true)
           .buildFeatureConfiguration();
 
+  public static final FeatureConfiguration<Boolean> ENABLE_ICECHUNK_TABLES =
+      PolarisConfiguration.<Boolean>builder()
+          .key("ENABLE_ICECHUNK_TABLES")
+          .description(
+              "If true, the Icechunk table endpoints are enabled. Enable this only after every"
+                  + " Polaris node that shares the metastore runs a version that supports Icechunk"
+                  + " table entities.")
+          .defaultValue(false)
+          .buildFeatureConfiguration();
+
   public static final FeatureConfiguration<Long> ENTITY_CACHE_WEIGHER_TARGET =
       PolarisConfiguration.<Long>builder()
           .key("ENTITY_CACHE_WEIGHER_TARGET")
@@ -685,8 +695,9 @@ public class FeatureConfiguration<T> extends PolarisConfiguration<T> {
       PolarisConfiguration.<Boolean>builder()
           .key("OPTIMIZED_SIBLING_CHECK")
           .description(
-              "When set, Polaris uses an index to perform sibling overlap checks between tables, "
-                  + "views, and namespaces. This is not a bypass mode, but enabling or disabling "
+              "When set, Polaris uses an index to perform sibling overlap checks between "
+                  + "location-bearing table-like entities (Iceberg tables and views, and Icechunk "
+                  + "tables) and namespaces. This is not a bypass mode, but enabling or disabling "
                   + "it can change overlap-detection coverage for non-standard location layouts. "
                   + "Only enable it when the required index and backfill state is known to be "
                   + "correct. Locations written by Polaris always end with a slash; locations "

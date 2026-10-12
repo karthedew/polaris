@@ -80,6 +80,50 @@ Table properties are readable metadata, not a secret store. Do not store passwor
 keys, or other secrets in table properties.
 {{< /alert >}}
 
+### Icechunk Tables
+
+The native `ICECHUNK_TABLE` subtype represents a table backed by one Icechunk repository. Its
+`location` property identifies the repository root; Icechunk, rather than the Polaris entity
+record, manages repository contents, snapshots, branches, and commits. Icechunk tables are created,
+loaded, listed, and dropped through the Icechunk Table API, which can also vend storage credentials
+for the repository; see [Icechunk Tables]({{% ref "icechunk-table" %}}).
+
+Icechunk tables share the table-like name space of a namespace with Iceberg tables, Iceberg views,
+and generic tables, so a name can belong to only one of them. The other APIs treat Icechunk tables
+as follows:
+
+- The Iceberg REST API and the generic table API do not list Icechunk tables. Loading, dropping, or
+  otherwise addressing an existing table by an Icechunk table's name fails with `404 Not Found`.
+- Creating, registering, or renaming an Iceberg table or view to the name of an Icechunk table, or
+  creating a generic table with that name, fails with `409 Conflict`.
+- A namespace that contains Icechunk tables cannot be dropped (`409 Conflict`) until they are
+  dropped.
+
+Icechunk repository locations take part in the location-overlap checks:
+
+- Creating an Icechunk table checks its location against the locations of Iceberg tables, other
+  Icechunk tables, and namespaces (and, without `OPTIMIZED_SIBLING_CHECK`, generic tables that have
+  a location), unless `ALLOW_TABLE_LOCATION_OVERLAP` is enabled for the catalog.
+- Creating an Iceberg table or view or changing its location is checked against the locations of
+  Icechunk tables, unless `ALLOW_TABLE_LOCATION_OVERLAP` is enabled for the catalog. Creating a
+  namespace or changing its location is checked against them, unless
+  `ALLOW_NAMESPACE_LOCATION_OVERLAP` is enabled.
+- Without `OPTIMIZED_SIBLING_CHECK`, these checks compare a location only with the entities directly
+  under the same parent and with the locations of the parent namespaces, and they do not compare a
+  namespace with a table-like entity of the same name under the same parent. With
+  `OPTIMIZED_SIBLING_CHECK`, they use a location index that covers the whole catalog.
+
+Privileges are not scoped by subtype. Table privileges granted on a catalog or namespace apply to
+the Icechunk tables in it as well as to Iceberg tables, and a table grant can target a single
+Icechunk table. Any table privilege can be granted on an Icechunk table, including privileges that
+only Iceberg operations use. [Icechunk Tables]({{% ref "icechunk-table#privileges" %}}) lists the
+privileges each Icechunk table operation requires.
+
+Icechunk entities use persisted subtype code `5` and NoSQL object type `ic-t`. Upgrade all nodes
+sharing a metastore before enabling the Icechunk Table API (`ENABLE_ICECHUNK_TABLES`). Older
+binaries do not recognize these identifiers; do not roll back to an older binary against a
+metastore containing Icechunk records.
+
 ## View
 
 Polaris views are entities that map to [Apache Iceberg views](https://iceberg.apache.org/view-spec/).

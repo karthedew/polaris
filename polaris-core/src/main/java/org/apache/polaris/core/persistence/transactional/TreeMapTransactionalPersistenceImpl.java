@@ -654,15 +654,16 @@ public class TreeMapTransactionalPersistenceImpl extends AbstractTransactionalPe
   private Optional<String> getEntityLocationWithoutScheme(PolarisBaseEntity entity) {
     if (entity.getType() == PolarisEntityType.TABLE_LIKE) {
       if (entity.getSubType() == PolarisEntitySubType.ICEBERG_TABLE
-          || entity.getSubType() == PolarisEntitySubType.ICEBERG_VIEW) {
-        return Optional.of(
+          || entity.getSubType() == PolarisEntitySubType.ICEBERG_VIEW
+          || entity.getSubType() == PolarisEntitySubType.ICECHUNK_TABLE) {
+        return Optional.ofNullable(
             StorageLocation.of(
                     entity.getPropertiesAsMap().get(PolarisEntityConstants.ENTITY_BASE_LOCATION))
                 .withoutScheme());
       }
     }
     if (entity.getType() == PolarisEntityType.NAMESPACE) {
-      return Optional.of(
+      return Optional.ofNullable(
           StorageLocation.of(
                   entity.getPropertiesAsMap().get(PolarisEntityConstants.ENTITY_BASE_LOCATION))
               .withoutScheme());

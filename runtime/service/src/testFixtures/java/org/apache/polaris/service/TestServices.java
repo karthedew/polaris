@@ -87,6 +87,8 @@ import org.apache.polaris.service.catalog.api.IcebergRestConfigurationApi;
 import org.apache.polaris.service.catalog.api.IcebergRestConfigurationApiService;
 import org.apache.polaris.service.catalog.api.PolarisCatalogGenericTableApi;
 import org.apache.polaris.service.catalog.api.PolarisCatalogGenericTableApiService;
+import org.apache.polaris.service.catalog.api.PolarisCatalogIcechunkTableApi;
+import org.apache.polaris.service.catalog.api.PolarisCatalogIcechunkTableApiService;
 import org.apache.polaris.service.catalog.config.CatalogConfigHandler;
 import org.apache.polaris.service.catalog.generic.CatalogGenericTableEventServiceDelegator;
 import org.apache.polaris.service.catalog.generic.GenericTableCatalogAdapter;
@@ -103,6 +105,12 @@ import org.apache.polaris.service.catalog.iceberg.IcebergRestConfigEndpoints;
 import org.apache.polaris.service.catalog.iceberg.IcebergRestConfigurationEventServiceDelegator;
 import org.apache.polaris.service.catalog.iceberg.IcebergViewConfigEndpoints;
 import org.apache.polaris.service.catalog.iceberg.ImmutableIcebergCatalogHandler;
+import org.apache.polaris.service.catalog.icechunk.CatalogIcechunkTableEventServiceDelegator;
+import org.apache.polaris.service.catalog.icechunk.IcechunkTableCatalogAdapter;
+import org.apache.polaris.service.catalog.icechunk.IcechunkTableCatalogHandler;
+import org.apache.polaris.service.catalog.icechunk.IcechunkTableCatalogHandlerFactory;
+import org.apache.polaris.service.catalog.icechunk.IcechunkTableConfigEndpoints;
+import org.apache.polaris.service.catalog.icechunk.ImmutableIcechunkTableCatalogHandler;
 import org.apache.polaris.service.catalog.io.FileIOFactory;
 import org.apache.polaris.service.catalog.io.MeasuredFileIOFactory;
 import org.apache.polaris.service.catalog.io.StorageAccessConfigProvider;
@@ -136,6 +144,7 @@ public record TestServices(
     Supplier<PolarisCatalogsApi> catalogsApiSupplier,
     Supplier<IcebergRestCatalogApi> restApiSupplier,
     Supplier<PolarisCatalogGenericTableApi> genericTableApiSupplier,
+    Supplier<PolarisCatalogIcechunkTableApi> icechunkTableApiSupplier,
     Supplier<IcebergRestConfigurationApi> restConfigurationApiSupplier,
     Supplier<IcebergCatalogAdapter> catalogAdapterSupplier,
     RealmConfigurationSource configurationSource,
@@ -168,6 +177,10 @@ public record TestServices(
 
   public PolarisCatalogGenericTableApi genericTableApi() {
     return genericTableApiSupplier.get();
+  }
+
+  public PolarisCatalogIcechunkTableApi icechunkTableApi() {
+    return icechunkTableApiSupplier.get();
   }
 
   public IcebergRestConfigurationApi restConfigurationApi() {
@@ -455,6 +468,8 @@ public record TestServices(
                 new IcebergViewConfigEndpoints();
             CatalogConfigEndpointContributor genericTableEndpoints =
                 new GenericTableConfigEndpoints(realmConfig);
+            CatalogConfigEndpointContributor icechunkTableEndpoints =
+                new IcechunkTableConfigEndpoints(realmConfig);
             CatalogConfigEndpointContributor policyEndpoints =
                 new PolicyConfigEndpoints(realmConfig);
             Mockito.when(configEndpointContributors.handlesStream())
@@ -463,6 +478,8 @@ public record TestServices(
                         Stream.of(
                             endpointContributorHandle(
                                 GenericTableConfigEndpoints.class, genericTableEndpoints),
+                            endpointContributorHandle(
+                                IcechunkTableConfigEndpoints.class, icechunkTableEndpoints),
                             endpointContributorHandle(PolicyConfigEndpoints.class, policyEndpoints),
                             endpointContributorHandle(
                                 IcebergRestConfigEndpoints.class, icebergRestEndpoints),
@@ -581,6 +598,43 @@ public record TestServices(
             return new PolarisCatalogGenericTableApi(genericTableService);
           };
 
+      Supplier<PolarisCatalogIcechunkTableApi> icechunkTableApiSupplier =
+          () -> {
+            IcechunkTableCatalogHandlerFactory icechunkHandlerFactory =
+                new IcechunkTableCatalogHandlerFactory() {
+                  @Override
+                  public IcechunkTableCatalogHandler createHandler(
+                      String catalogName, PolarisPrincipal principal) {
+                    return ImmutableIcechunkTableCatalogHandler.builder()
+                        .catalogName(catalogName)
+                        .polarisPrincipal(principal)
+                        .callContext(callContext)
+                        .resolutionManifestFactory(resolutionManifestFactory)
+                        .metaStoreManager(metaStoreManager)
+                        .authorizer(authorizer)
+                        .storageAccessConfigProvider(storageAccessConfigProvider)
+                        .build();
+                  }
+                };
+            IcechunkTableCatalogAdapter icechunkTableCatalogAdapter =
+                new IcechunkTableCatalogAdapter(
+                    callContext,
+                    new DefaultCatalogPrefixParser(),
+                    reservedProperties,
+                    icechunkHandlerFactory);
+            PolarisCatalogIcechunkTableApiService icechunkTableService =
+                icechunkTableCatalogAdapter;
+            if (useEventDelegator) {
+              icechunkTableService =
+                  new CatalogIcechunkTableEventServiceDelegator(
+                      icechunkTableCatalogAdapter,
+                      polarisEventDispatcher,
+                      eventMetadataFactory,
+                      new DefaultCatalogPrefixParser());
+            }
+            return new PolarisCatalogIcechunkTableApi(icechunkTableService);
+          };
+
       Supplier<PolarisCatalogsApi> catalogsApiSupplier =
           () -> {
             PolarisAdminService adminService =
@@ -604,6 +658,7 @@ public record TestServices(
           catalogsApiSupplier,
           restApiSupplier,
           genericTableApiSupplier,
+          icechunkTableApiSupplier,
           restConfigurationApiSupplier,
           catalogAdapterSupplier,
           configurationSource,

@@ -40,6 +40,14 @@ public class PolarisResourcePaths {
   public static final String V1_GENERIC_TABLE =
       "polaris/v1/{prefix}/namespaces/{namespace}/generic-tables/{generic-table}";
 
+  // Icechunk Table endpoints
+  public static final String V1_ICECHUNK_TABLES =
+      "polaris/v1/{prefix}/namespaces/{namespace}/icechunk-tables";
+  public static final String V1_ICECHUNK_TABLE =
+      "polaris/v1/{prefix}/namespaces/{namespace}/icechunk-tables/{icechunk-table}";
+  public static final String V1_ICECHUNK_TABLE_CREDENTIALS =
+      "polaris/v1/{prefix}/namespaces/{namespace}/icechunk-tables/{icechunk-table}/credentials";
+
   // Policy Store endpoints
   public static final String V1_POLICIES = "/polaris/v1/{prefix}/namespaces/{namespace}/policies";
   public static final String V1_POLICY =
@@ -103,5 +111,38 @@ public class PolarisResourcePaths {
         RESTUtil.encodeNamespaceAsPathSegment(ident.namespace(), namespaceSeparatorEncoded),
         "generic-tables",
         RESTUtil.encodePathSegment(ident.name()));
+  }
+
+  public String icechunkTables(Namespace ns) {
+    return SLASH.join(
+        "polaris",
+        "v1",
+        prefix,
+        "namespaces",
+        RESTUtil.encodeNamespaceAsPathSegment(ns, namespaceSeparatorEncoded),
+        "icechunk-tables");
+  }
+
+  public String icechunkTable(TableIdentifier ident) {
+    return SLASH.join(
+        "polaris",
+        "v1",
+        prefix,
+        "namespaces",
+        RESTUtil.encodeNamespaceAsPathSegment(ident.namespace(), namespaceSeparatorEncoded),
+        "icechunk-tables",
+        RESTUtil.encodePathSegment(ident.name()));
+  }
+
+  public String icechunkTableCredentials(TableIdentifier ident) {
+    return SLASH.join(
+        "polaris",
+        "v1",
+        prefix,
+        "namespaces",
+        RESTUtil.encodeNamespaceAsPathSegment(ident.namespace(), namespaceSeparatorEncoded),
+        "icechunk-tables",
+        RESTUtil.encodePathSegment(ident.name()),
+        "credentials");
   }
 }

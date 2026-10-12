@@ -860,26 +860,31 @@ public abstract class IcebergCatalogHandler extends CatalogHandler implements Au
     PolarisResolvedPathWrapper target =
         resolutionManifest.getResolvedPath(ResolvedPathKey.ofTableLike(tableIdentifier));
     PolarisEntity rawLeafEntity = target.getRawLeafEntity();
-    if (rawLeafEntity.getType() == PolarisEntityType.TABLE_LIKE) {
+    if (rawLeafEntity.getType() == PolarisEntityType.TABLE_LIKE
+        && rawLeafEntity.getSubType() == PolarisEntitySubType.ICEBERG_TABLE) {
       return IcebergTableLikeEntity.of(rawLeafEntity);
     }
-    return null; // could be an external catalog
+    return null; // could be an external catalog, or a table-like entity of another subtype
   }
 
   /**
    * Resolve the table entity from persistence for idempotency replay, or {@code null} if it does
    * not exist.
    *
-   * <p>Uses {@link
-   * PolarisResolutionManifestCatalogView#getPassthroughResolvedPath(ResolvedPathKey)}, which runs a
-   * new {@code Resolver} and loads entities from the metastore (via {@code getOrLoadEntityByName} /
-   * {@code loadResolvedEntityByName}). This is not the authorization-time snapshot from {@link
+   * <p>Uses {@link PolarisResolutionManifestCatalogView#getPassthroughResolvedPath(ResolvedPathKey,
+   * PolarisEntitySubType)}, which runs a new {@code Resolver} and loads entities from the metastore
+   * (via {@code getOrLoadEntityByName} / {@code loadResolvedEntityByName}). This is not the
+   * authorization-time snapshot from {@link
    * PolarisResolutionManifestCatalogView#getResolvedPath(ResolvedPathKey)}.
+   *
+   * <p>Only an Iceberg table can match a replay; a name held by another table-like subtype returns
+   * {@code null}, so the create proceeds to its regular conflict handling.
    */
   private @Nullable IcebergTableLikeEntity passthroughResolveTableEntityForIdempotency(
       TableIdentifier tableIdentifier) {
     PolarisResolvedPathWrapper target =
-        resolutionManifest.getPassthroughResolvedPath(ResolvedPathKey.ofTableLike(tableIdentifier));
+        resolutionManifest.getPassthroughResolvedPath(
+            ResolvedPathKey.ofTableLike(tableIdentifier), PolarisEntitySubType.ICEBERG_TABLE);
     if (target == null) {
       return null;
     }

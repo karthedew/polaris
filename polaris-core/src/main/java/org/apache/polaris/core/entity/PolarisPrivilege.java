@@ -56,7 +56,10 @@ public enum PolarisPrivilege {
   TABLE_DROP(
       9,
       PolarisEntityType.TABLE_LIKE,
-      List.of(PolarisEntitySubType.ICEBERG_TABLE, PolarisEntitySubType.GENERIC_TABLE),
+      List.of(
+          PolarisEntitySubType.ICEBERG_TABLE,
+          PolarisEntitySubType.GENERIC_TABLE,
+          PolarisEntitySubType.ICECHUNK_TABLE),
       PolarisEntityType.CATALOG_ROLE),
   VIEW_DROP(10, PolarisEntityType.TABLE_LIKE, PolarisEntitySubType.ICEBERG_VIEW),
   NAMESPACE_LIST(11, PolarisEntityType.NAMESPACE),
@@ -66,31 +69,46 @@ public enum PolarisPrivilege {
   TABLE_READ_PROPERTIES(
       15,
       PolarisEntityType.TABLE_LIKE,
-      List.of(PolarisEntitySubType.ICEBERG_TABLE, PolarisEntitySubType.GENERIC_TABLE),
+      List.of(
+          PolarisEntitySubType.ICEBERG_TABLE,
+          PolarisEntitySubType.GENERIC_TABLE,
+          PolarisEntitySubType.ICECHUNK_TABLE),
       PolarisEntityType.CATALOG_ROLE),
   VIEW_READ_PROPERTIES(16, PolarisEntityType.TABLE_LIKE, PolarisEntitySubType.ICEBERG_VIEW),
   NAMESPACE_WRITE_PROPERTIES(17, PolarisEntityType.NAMESPACE),
   TABLE_WRITE_PROPERTIES(
       18,
       PolarisEntityType.TABLE_LIKE,
-      List.of(PolarisEntitySubType.ICEBERG_TABLE, PolarisEntitySubType.GENERIC_TABLE),
+      List.of(
+          PolarisEntitySubType.ICEBERG_TABLE,
+          PolarisEntitySubType.GENERIC_TABLE,
+          PolarisEntitySubType.ICECHUNK_TABLE),
       PolarisEntityType.CATALOG_ROLE),
   VIEW_WRITE_PROPERTIES(19, PolarisEntityType.TABLE_LIKE, PolarisEntitySubType.ICEBERG_VIEW),
   TABLE_READ_DATA(
       20,
       PolarisEntityType.TABLE_LIKE,
-      List.of(PolarisEntitySubType.ICEBERG_TABLE, PolarisEntitySubType.GENERIC_TABLE),
+      List.of(
+          PolarisEntitySubType.ICEBERG_TABLE,
+          PolarisEntitySubType.GENERIC_TABLE,
+          PolarisEntitySubType.ICECHUNK_TABLE),
       PolarisEntityType.CATALOG_ROLE),
   TABLE_WRITE_DATA(
       21,
       PolarisEntityType.TABLE_LIKE,
-      List.of(PolarisEntitySubType.ICEBERG_TABLE, PolarisEntitySubType.GENERIC_TABLE),
+      List.of(
+          PolarisEntitySubType.ICEBERG_TABLE,
+          PolarisEntitySubType.GENERIC_TABLE,
+          PolarisEntitySubType.ICECHUNK_TABLE),
       PolarisEntityType.CATALOG_ROLE),
   NAMESPACE_FULL_METADATA(22, PolarisEntityType.NAMESPACE),
   TABLE_FULL_METADATA(
       23,
       PolarisEntityType.TABLE_LIKE,
-      List.of(PolarisEntitySubType.ICEBERG_TABLE, PolarisEntitySubType.GENERIC_TABLE),
+      List.of(
+          PolarisEntitySubType.ICEBERG_TABLE,
+          PolarisEntitySubType.GENERIC_TABLE,
+          PolarisEntitySubType.ICECHUNK_TABLE),
       PolarisEntityType.CATALOG_ROLE),
   VIEW_FULL_METADATA(24, PolarisEntityType.TABLE_LIKE, PolarisEntitySubType.ICEBERG_VIEW),
   CATALOG_CREATE(25, PolarisEntityType.ROOT),
@@ -109,7 +127,10 @@ public enum PolarisPrivilege {
   TABLE_LIST_GRANTS(
       38,
       PolarisEntityType.TABLE_LIKE,
-      List.of(PolarisEntitySubType.ICEBERG_TABLE, PolarisEntitySubType.GENERIC_TABLE),
+      List.of(
+          PolarisEntitySubType.ICEBERG_TABLE,
+          PolarisEntitySubType.GENERIC_TABLE,
+          PolarisEntitySubType.ICECHUNK_TABLE),
       PolarisEntityType.CATALOG_ROLE),
   VIEW_LIST_GRANTS(39, PolarisEntityType.TABLE_LIKE, PolarisEntitySubType.ICEBERG_VIEW),
   CATALOG_MANAGE_GRANTS_ON_SECURABLE(40, PolarisEntityType.CATALOG),
@@ -117,7 +138,10 @@ public enum PolarisPrivilege {
   TABLE_MANAGE_GRANTS_ON_SECURABLE(
       42,
       PolarisEntityType.TABLE_LIKE,
-      List.of(PolarisEntitySubType.ICEBERG_TABLE, PolarisEntitySubType.GENERIC_TABLE),
+      List.of(
+          PolarisEntitySubType.ICEBERG_TABLE,
+          PolarisEntitySubType.GENERIC_TABLE,
+          PolarisEntitySubType.ICECHUNK_TABLE),
       PolarisEntityType.CATALOG_ROLE),
   VIEW_MANAGE_GRANTS_ON_SECURABLE(
       43, PolarisEntityType.TABLE_LIKE, PolarisEntitySubType.ICEBERG_VIEW),

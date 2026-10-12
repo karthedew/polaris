@@ -1652,6 +1652,210 @@ paths:
           $ref: '#/components/responses/ServiceUnavailableResponse'
         5XX:
           $ref: '#/components/responses/ServerErrorResponse'
+  /polaris/v1/{prefix}/namespaces/{namespace}/icechunk-tables:
+    parameters:
+      - $ref: '#/components/parameters/prefix'
+      - $ref: '#/components/parameters/namespace'
+    get:
+      tags:
+        - Icechunk Table API
+      summary: List all Icechunk table identifiers underneath a given namespace
+      description: Return all Icechunk table identifiers under this namespace
+      operationId: listIcechunkTables
+      parameters:
+        - $ref: '#/components/parameters/page-token'
+        - $ref: '#/components/parameters/page-size'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListIcechunkTablesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          description: Not Found - The namespace specified does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IcebergErrorResponse'
+              examples:
+                NamespaceNotFound:
+                  $ref: '#/components/examples/NoSuchNamespaceError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableResponse'
+        5XX:
+          $ref: '#/components/responses/ServerErrorResponse'
+    post:
+      tags:
+        - Icechunk Table API
+      summary: Create an Icechunk table under the given namespace
+      description: |
+        Register an Icechunk repository as a table under the given namespace, and return the created
+        table information as a response. Polaris stores the table name, the repository root
+        `location` and the properties. It does not read, initialize or modify the repository.
+
+        The catalog must allow client-specified table locations, otherwise the request fails with
+        400 Bad Request. A `location` that breaks one of the rules described in
+        `CreateIcechunkTableRequest` is rejected with 403 Forbidden.
+
+        If the `Polaris-Icechunk-Table-Access-Delegation` header is present, the response carries
+        read-write storage credentials for the repository root, so that the client can initialize the
+        repository; the header description lists when no credentials are returned. This requires the
+        `TABLE_WRITE_DATA` privilege in addition to `TABLE_CREATE`. Polaris registers the table before
+        it vends the credentials: if vending fails, the request fails, but the table stays registered.
+      operationId: createIcechunkTable
+      parameters:
+        - $ref: '#/components/parameters/polaris-icechunk-table-access-delegation'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateIcechunkTableRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/CreateIcechunkTableResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          description: Not Found - The namespace specified does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IcebergErrorResponse'
+              examples:
+                NamespaceNotFound:
+                  $ref: '#/components/examples/NoSuchNamespaceError'
+        '409':
+          description: Conflict - A table with the same name already exists under the given namespace. The name is shared with Iceberg tables, Iceberg views and generic tables.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IcebergErrorResponse'
+              examples:
+                TableAlreadyExists:
+                  $ref: '#/components/examples/TableAlreadyExistsError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableResponse'
+        5XX:
+          $ref: '#/components/responses/ServerErrorResponse'
+  /polaris/v1/{prefix}/namespaces/{namespace}/icechunk-tables/{icechunk-table}:
+    parameters:
+      - $ref: '#/components/parameters/prefix'
+      - $ref: '#/components/parameters/namespace'
+      - $ref: '#/components/parameters/icechunk-table'
+    get:
+      tags:
+        - Icechunk Table API
+      summary: Load an Icechunk table under the given namespace from the catalog
+      operationId: loadIcechunkTable
+      description: |
+        Load an Icechunk table from the catalog under the given namespace.
+
+        The response contains the table name, the repository root `location` and the properties
+        passed during create. If the `Polaris-Icechunk-Table-Access-Delegation` header is present,
+        the response also carries storage credentials for the repository root, with the access
+        selected by `access-mode`. Without the header, no credentials are vended.
+      parameters:
+        - $ref: '#/components/parameters/polaris-icechunk-table-access-delegation'
+        - $ref: '#/components/parameters/icechunk-table-access-mode'
+      responses:
+        '200':
+          $ref: '#/components/responses/LoadIcechunkTableResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          description: Not Found - NoSuchTableError, Icechunk table to load does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IcebergErrorResponse'
+              examples:
+                TableToLoadDoesNotExist:
+                  $ref: '#/components/examples/NoSuchTableError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableResponse'
+        5XX:
+          $ref: '#/components/responses/ServerErrorResponse'
+    delete:
+      tags:
+        - Icechunk Table API
+      summary: Drop an Icechunk table under the given namespace from the catalog
+      operationId: dropIcechunkTable
+      description: Remove an Icechunk table under the given namespace from the catalog. The repository and its contents in storage are left untouched.
+      responses:
+        '204':
+          description: Success, no content
+        '400':
+          $ref: '#/components/responses/BadRequestErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          description: Not Found - NoSuchTableError, Icechunk table to drop does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IcebergErrorResponse'
+              examples:
+                TableToDeleteDoesNotExist:
+                  $ref: '#/components/examples/NoSuchTableError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableResponse'
+        5XX:
+          $ref: '#/components/responses/ServerErrorResponse'
+  /polaris/v1/{prefix}/namespaces/{namespace}/icechunk-tables/{icechunk-table}/credentials:
+    parameters:
+      - $ref: '#/components/parameters/prefix'
+      - $ref: '#/components/parameters/namespace'
+      - $ref: '#/components/parameters/icechunk-table'
+    get:
+      tags:
+        - Icechunk Table API
+      summary: Load vended storage credentials for an Icechunk table
+      operationId: loadIcechunkTableCredentials
+      description: |
+        Return storage credentials for the repository root of the Icechunk table, with the access
+        selected by `access-mode`.
+
+        Clients call this endpoint to refresh credentials before they expire. The refresh endpoint
+        key in vended configurations, such as `client.refresh-credentials-endpoint` for S3, points
+        here and includes the granted `access-mode`. Every call is authorized again.
+      parameters:
+        - $ref: '#/components/parameters/icechunk-table-access-mode'
+      responses:
+        '200':
+          $ref: '#/components/responses/LoadIcechunkTableCredentialsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          description: Not Found - NoSuchTableError, Icechunk table to load credentials for does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IcebergErrorResponse'
+              examples:
+                TableToLoadDoesNotExist:
+                  $ref: '#/components/examples/NoSuchTableError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableResponse'
+        5XX:
+          $ref: '#/components/responses/ServerErrorResponse'
   /polaris/v1/{prefix}/namespaces/{namespace}/policies:
     parameters:
       - $ref: '#/components/parameters/prefix'
@@ -4950,8 +5154,10 @@ components:
               - `s3.secret-access-key`: secret for credentials that provide access to data in S3
               - `s3.session-token`: if present, this value should be used for as the session token
               - `s3.session-token-expires-at-ms`: the time the aws session token expires, in milliseconds
-              - `s3.client.region`: region to configure client for making requests to S3
-              - `s3.client.refresh-credentials-endpoint`: the endpoint to load vended credentials for a table from the catalog
+              - `s3.endpoint`: the S3 endpoint to use; only when the catalog's storage configuration sets a custom endpoint, as for S3-compatible systems
+              - `s3.path-style-access`: `true` when path-style access is required
+              - `client.region`: region to configure client for making requests to S3
+              - `client.refresh-credentials-endpoint`: the endpoint to load vended credentials for a table from the catalog
               
             ## GCP GCS Configurations
 
@@ -4981,6 +5187,130 @@ components:
           description: |
             Storage configurations required to access the table, encompassing both credentials and other necessary 
             settings for storage access, such as the client region for S3.
+          items:
+            $ref: '#/components/schemas/StorageAccessConfig'
+    ListIcechunkTablesResponse:
+      type: object
+      properties:
+        next-page-token:
+          $ref: '#/components/schemas/PageToken'
+        identifiers:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/TableIdentifier'
+    CreateIcechunkTableRequest:
+      type: object
+      description: |
+        Request to register an Icechunk repository as a table.
+
+        - `name` (REQUIRED): name for the Icechunk table
+
+        - `location` (REQUIRED): root URI of the Icechunk repository. For example:
+          s3://<my-bucket>/path/to/repo/. Polaris appends a trailing `/` if it is missing. The
+          location cannot be changed after the table is created, and it must follow these rules:
+          - It must lie within the catalog's allowed locations.
+          - It must lie under the namespace location, unless unstructured table locations are
+            enabled for the catalog.
+          - Unless overlapping table locations are allowed for the catalog, it must not equal the
+            location of its namespace or of a parent namespace, and it must not overlap the
+            location of another Iceberg table, Icechunk table or namespace, or, without the
+            optimized sibling check (`OPTIMIZED_SIBLING_CHECK`), of a generic table that has a
+            location. Without the optimized sibling check, only the entities under the same
+            namespace, except a namespace with the same name as the table, and the parent
+            namespaces are compared.
+
+        - `properties` (OPTIONAL): properties for the Icechunk table. They must not contain the key
+          `location`; the repository root goes in the `location` field.
+      required:
+        - name
+        - location
+      properties:
+        name:
+          type: string
+        location:
+          type: string
+        properties:
+          type: object
+          additionalProperties:
+            type: string
+    IcechunkTable:
+      type: object
+      description: |
+        Icechunk table information.
+
+        - `name` (REQUIRED): name for the Icechunk table
+
+        - `location` (REQUIRED): root URI of the Icechunk repository, ending with `/`. For example:
+          s3://<my-bucket>/path/to/repo/. It is the `prefix` of the vended storage configurations.
+
+        - `properties` (OPTIONAL): properties for the Icechunk table passed on creation. They never
+          contain the key `location`.
+      required:
+        - name
+        - location
+      properties:
+        name:
+          type: string
+        location:
+          type: string
+        properties:
+          type: object
+          additionalProperties:
+            type: string
+    LoadIcechunkTableResponse:
+      description: Result used when an Icechunk table is successfully created or loaded.
+      type: object
+      required:
+        - table
+      properties:
+        table:
+          $ref: '#/components/schemas/IcechunkTable'
+        storage-access-configs:
+          type: array
+          description: |
+            Storage configurations required to access the Icechunk repository, encompassing both
+            credentials and other necessary settings for storage access. It has entries only when
+            credentials are vended. The `prefix` of each configuration is the repository root. On
+            S3, S3-compatible storage, GCS and ADLS with a hierarchical namespace, the credentials
+            cover only that prefix; on Azure Blob endpoints and on ADLS without a hierarchical
+            namespace, the SAS token covers the whole container.
+
+            For S3 and S3-compatible storage, Polaris emits these `config` keys:
+              - `s3.access-key-id`: access key id of the vended session credentials
+              - `s3.secret-access-key`: secret access key of the vended session credentials
+              - `s3.session-token`: session token of the vended session credentials
+              - `s3.session-token-expires-at-ms`: the time the session token expires, in milliseconds
+                since the Unix epoch
+              - `s3.endpoint`: the S3 endpoint to use; only when the catalog's storage configuration
+                sets a custom endpoint, as for S3-compatible systems
+              - `s3.path-style-access`: `true` when path-style access is required; only when the
+                catalog's storage configuration enables it
+              - `client.region`: region to configure the client for making requests to S3; only when
+                the catalog's storage configuration sets a region
+              - `client.refresh-credentials-endpoint`: the path, relative to the catalog API base URI,
+                of the credentials endpoint of this Icechunk table, including the granted
+                `access-mode`
+
+            For GCS, the equivalent keys are `gcs.oauth2.token`, `gcs.oauth2.token-expires-at` and
+            `gcs.oauth2.refresh-credentials-endpoint`. For Azure ADLS, they are
+            `adls.sas-token.<storage-dns-name>` (also emitted keyed by the account name, and without a
+            suffix together with `adls.account-name`), `adls.sas-token-expires-at-ms.<storage-dns-name>`
+            and `adls.refresh-credentials-endpoint`.
+          items:
+            $ref: '#/components/schemas/StorageAccessConfig'
+    LoadIcechunkTableCredentialsResponse:
+      description: Result used when the storage credentials of an Icechunk table are successfully loaded.
+      type: object
+      required:
+        - storage-access-configs
+      properties:
+        storage-access-configs:
+          type: array
+          description: |
+            Storage configurations required to access the Icechunk repository. They have the same
+            prefix and the same `config` keys as `storage-access-configs` in
+            `LoadIcechunkTableResponse`.
           items:
             $ref: '#/components/schemas/StorageAccessConfig'
     PolicyType:
@@ -5444,6 +5774,30 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/LoadGenericTableResponse'
+    ListIcechunkTablesResponse:
+      description: List of Icechunk table identifiers.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ListIcechunkTablesResponse'
+    CreateIcechunkTableResponse:
+      description: Table result if an Icechunk table is successfully created.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LoadIcechunkTableResponse'
+    LoadIcechunkTableResponse:
+      description: Table result if an Icechunk table is successfully loaded.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LoadIcechunkTableResponse'
+    LoadIcechunkTableCredentialsResponse:
+      description: Storage credentials for the repository root of an Icechunk table.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LoadIcechunkTableCredentialsResponse'
     ListPoliciesResponse:
       description: a list of policy identifiers
       content:
@@ -5868,6 +6222,50 @@ components:
       schema:
         type: string
       example: sales
+    polaris-icechunk-table-access-delegation:
+      name: Polaris-Icechunk-Table-Access-Delegation
+      in: header
+      description: |
+        Optional header indicating that the client wants delegated access to the Icechunk repository. The only supported value is `vended-credentials`; a non-empty value that does not request vended credentials, such as `remote-signing`, fails the request with 400 Bad Request. With the header, the response carries storage credentials for the repository root in `storage-access-configs`. If the catalog's storage supports credential vending but is configured not to provide credentials, such as S3 storage with `stsUnavailable`, the request fails with 400 Bad Request. If the storage does not support credential vending, such as `FILE` storage, or the realm enables `SKIP_CREDENTIAL_SUBSCOPING_INDIRECTION` (for testing only), the request succeeds and `storage-access-configs` is empty.
+      required: false
+      schema:
+        type: string
+        enum:
+          - vended-credentials
+      style: simple
+      explode: false
+      example: vended-credentials
+    icechunk-table:
+      name: icechunk-table
+      in: path
+      description: An Icechunk table name
+      required: true
+      schema:
+        type: string
+      example: sales
+    icechunk-table-access-mode:
+      name: access-mode
+      in: query
+      description: |
+        The storage access to vend. It applies only when credentials are vended: when an Icechunk
+        table is loaded with the `Polaris-Icechunk-Table-Access-Delegation` header, and on the
+        credentials endpoint.
+
+        - `read` (default): read and list access to the repository prefix. Requires the
+          `TABLE_READ_DATA` privilege.
+
+        - `read-write`: read and list access, plus write and delete access to the whole repository
+          prefix, including its history. Requires the `TABLE_WRITE_DATA` privilege.
+
+        On these endpoints, write access is granted only when `read-write` is requested explicitly.
+        An unsupported value is rejected with 400 Bad Request, also on a load without the header.
+      required: false
+      schema:
+        type: string
+        enum:
+          - read
+          - read-write
+        default: read
     policy-type:
       name: policyType
       in: query

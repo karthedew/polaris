@@ -34,6 +34,15 @@ val genericTableModels =
     "StorageAccessConfig",
   )
 
+val icechunkTableModels =
+  listOf(
+    "CreateIcechunkTableRequest",
+    "IcechunkTable",
+    "LoadIcechunkTableResponse",
+    "LoadIcechunkTableCredentialsResponse",
+    "ListIcechunkTablesResponse",
+  )
+
 val policyManagementModels =
   listOf(
     "CatalogIdentifier",
@@ -49,7 +58,7 @@ val policyManagementModels =
     "ListPoliciesResponse",
   )
 
-val models = (genericTableModels + policyManagementModels).joinToString(",")
+val models = (genericTableModels + icechunkTableModels + policyManagementModels).joinToString(",")
 
 dependencies {
   implementation(project(":polaris-core"))
@@ -101,7 +110,7 @@ openApiGenerate {
   ignoreFileOverride.set(provider { rootDir.file(".openapi-generator-ignore").asFile.absolutePath })
   removeOperationIdPrefix.set(true)
   templateDir.set(provider { templatesDir.asFile.absolutePath })
-  globalProperties.put("apis", "GenericTableApi,PolicyApi")
+  globalProperties.put("apis", "GenericTableApi,IcechunkTableApi,PolicyApi")
   globalProperties.put("models", models)
   globalProperties.put("apiDocs", "false")
   globalProperties.put("modelTests", "false")

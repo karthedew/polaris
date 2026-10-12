@@ -35,6 +35,7 @@ import org.apache.polaris.core.admin.model.FileStorageConfigInfo;
 import org.apache.polaris.core.admin.model.PolarisCatalog;
 import org.apache.polaris.core.admin.model.StorageConfigInfo;
 import org.apache.polaris.core.rest.GenericTableEndpoints;
+import org.apache.polaris.core.rest.IcechunkTableEndpoints;
 import org.apache.polaris.service.TestServices;
 import org.apache.polaris.service.catalog.policy.PolicyEndpoints;
 import org.junit.jupiter.api.Test;
@@ -50,6 +51,35 @@ public class GetConfigTest {
     assertThat(configResponse.endpoints()).contains(PolicyEndpoints.V1_CREATE_POLICY);
     assertEndpointOrder(configResponse, enableGenericTable);
     assertGenericTableEndpoints(configResponse, enableGenericTable);
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testGetConfigAdvertisesIcechunkTableEndpointsOnlyWhenEnabled(
+      boolean enableIcechunkTables) {
+    ConfigResponse configResponse =
+        getConfig(Map.of("ENABLE_ICECHUNK_TABLES", enableIcechunkTables));
+
+    if (enableIcechunkTables) {
+      assertThat(configResponse.endpoints())
+          .containsAll(IcechunkTableEndpoints.ICECHUNK_TABLE_ENDPOINTS)
+          .containsSubsequence(
+              GenericTableEndpoints.V1_CREATE_GENERIC_TABLE,
+              IcechunkTableEndpoints.V1_CREATE_ICECHUNK_TABLE,
+              PolicyEndpoints.V1_CREATE_POLICY);
+    } else {
+      assertThat(configResponse.endpoints())
+          .doesNotContainAnyElementsOf(IcechunkTableEndpoints.ICECHUNK_TABLE_ENDPOINTS);
+    }
+  }
+
+  @Test
+  public void testGetConfigDoesNotAdvertiseIcechunkTableEndpointsByDefault() {
+    // ENABLE_ICECHUNK_TABLES is not set, so its default applies.
+    ConfigResponse configResponse = getConfig(Map.of());
+
+    assertThat(configResponse.endpoints())
+        .doesNotContainAnyElementsOf(IcechunkTableEndpoints.ICECHUNK_TABLE_ENDPOINTS);
   }
 
   @Test

@@ -31,6 +31,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
@@ -53,6 +54,8 @@ import org.apache.polaris.service.events.PolarisEvent;
 import org.apache.polaris.service.events.PolarisEventMetadata;
 import org.apache.polaris.service.events.PolarisEventType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class PolarisPersistenceEventListenerTest {
 
@@ -356,6 +359,40 @@ class PolarisPersistenceEventListenerTest {
     assertThat(persisted.getResourceType()).isEqualTo(EventEntity.ResourceType.TABLE);
     assertThat(persisted.getResourceIdentifier())
         .isEqualTo(TableIdentifier.of(NAMESPACE, "generic_tbl").toString());
+  }
+
+  static Stream<PolarisEventType> icechunkTableEventTypes() {
+    return PolarisEventType.typesOfCategory(PolarisEventType.Category.ICECHUNK_TABLE).stream();
+  }
+
+  @ParameterizedTest
+  @MethodSource("icechunkTableEventTypes")
+  void shouldResolveIcechunkTableResourceType(PolarisEventType eventType) {
+    CapturingPersistenceListener listener = new CapturingPersistenceListener();
+    TableIdentifier identifier = TableIdentifier.of(NAMESPACE, "icechunk_tbl");
+    // List events name the namespace; every other Icechunk table event names the table.
+    boolean listEvent =
+        eventType == PolarisEventType.BEFORE_LIST_ICECHUNK_TABLES
+            || eventType == PolarisEventType.AFTER_LIST_ICECHUNK_TABLES;
+    ImmutableAttributeMap.Builder attributes =
+        ImmutableAttributeMap.builder().put(EventAttributes.CATALOG_NAME, CATALOG_NAME);
+    if (listEvent) {
+      attributes.put(EventAttributes.NAMESPACE, NAMESPACE);
+    } else {
+      attributes.put(EventAttributes.TABLE_IDENTIFIER, identifier);
+    }
+
+    listener.onEvent(new PolarisEvent(eventType, metadata(), attributes.build()));
+
+    EventEntity persisted = listener.persistedEvent(eventType);
+    assertThat(persisted.getCatalogId()).isEqualTo(CATALOG_NAME);
+    assertThat(persisted.getResourceType()).isEqualTo(EventEntity.ResourceType.TABLE);
+    assertThat(persisted.getResourceIdentifier())
+        .isEqualTo(listEvent ? NAMESPACE.toString() : identifier.toString());
+    assertThat(additionalProperties(persisted))
+        .containsOnlyKeys(
+            EventAttributes.CATALOG_NAME.key(),
+            listEvent ? EventAttributes.NAMESPACE.key() : EventAttributes.TABLE_IDENTIFIER.key());
   }
 
   private static PolarisEvent tableEvent(PolarisEventType eventType) {

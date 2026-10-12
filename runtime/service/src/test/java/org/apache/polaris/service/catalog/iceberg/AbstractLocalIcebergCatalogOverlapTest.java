@@ -19,6 +19,7 @@
 package org.apache.polaris.service.catalog.iceberg;
 
 import static org.apache.polaris.service.admin.PolarisAuthzTestBase.SCHEMA;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
@@ -51,10 +52,15 @@ import org.apache.polaris.core.context.CallContext;
 import org.apache.polaris.core.entity.CatalogEntity;
 import org.apache.polaris.core.entity.PolarisEntity;
 import org.apache.polaris.core.entity.PolarisEntityConstants;
+import org.apache.polaris.core.entity.PolarisEntityCore;
+import org.apache.polaris.core.entity.PolarisEntitySubType;
+import org.apache.polaris.core.entity.PolarisEntityType;
+import org.apache.polaris.core.entity.table.IcechunkTableEntity;
 import org.apache.polaris.core.identity.provider.ServiceIdentityProvider;
 import org.apache.polaris.core.persistence.MetaStoreManagerFactory;
 import org.apache.polaris.core.persistence.PolarisMetaStoreManager;
 import org.apache.polaris.core.persistence.bootstrap.RootCredentialsSet;
+import org.apache.polaris.core.persistence.dao.entity.EntityResult;
 import org.apache.polaris.core.persistence.resolver.ResolutionManifestFactory;
 import org.apache.polaris.core.persistence.resolver.ResolverFactory;
 import org.apache.polaris.core.storage.PolarisStorageIntegrationProvider;
@@ -63,6 +69,8 @@ import org.apache.polaris.core.storage.aws.AwsStorageConfigurationInfo;
 import org.apache.polaris.core.storage.cache.StorageCredentialCache;
 import org.apache.polaris.service.admin.PolarisAdminService;
 import org.apache.polaris.service.catalog.PolarisPassthroughResolutionView;
+import org.apache.polaris.service.catalog.common.LocationOverlapValidator;
+import org.apache.polaris.service.catalog.icechunk.IcechunkTableCatalog;
 import org.apache.polaris.service.catalog.io.FileIOFactory;
 import org.apache.polaris.service.catalog.io.StorageAccessConfigProvider;
 import org.apache.polaris.service.context.catalog.RealmContextHolder;
@@ -72,11 +80,14 @@ import org.apache.polaris.service.events.listeners.PolarisEventListener;
 import org.apache.polaris.service.events.listeners.TestPolarisEventListener;
 import org.apache.polaris.service.storage.PolarisStorageIntegrationProviderImpl;
 import org.apache.polaris.service.task.TaskExecutor;
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mockito;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
@@ -297,6 +308,106 @@ public abstract class AbstractLocalIcebergCatalogOverlapTest {
         .isInstanceOf(ForbiddenException.class)
         .hasMessageContaining("Unable to create entity at location")
         .hasMessageContaining("conflicts with existing table or namespace");
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "icechunk/repo, true",
+    "icechunk, true",
+    "icechunk/repo/child, true",
+    "icechunk/repo-other, false"
+  })
+  public void testStoredIcechunkLocationOverlap(String relativeLocation, boolean overlaps) {
+    Namespace ns = Namespace.of("ns-for-icechunk-overlap");
+    catalog().createNamespace(ns);
+    EntityResult namespace =
+        metaStoreManager.readEntityByName(
+            polarisContext,
+            List.of(PolarisEntity.toCore(catalogEntity)),
+            PolarisEntityType.NAMESPACE,
+            PolarisEntitySubType.NULL_SUBTYPE,
+            ns.level(0));
+    assertThat(namespace.isSuccess()).isTrue();
+    List<PolarisEntityCore> path =
+        List.of(PolarisEntity.toCore(catalogEntity), PolarisEntity.toCore(namespace.getEntity()));
+    IcechunkTableEntity repo =
+        new IcechunkTableEntity.Builder(TableIdentifier.of(ns, "repo"))
+            .setId(metaStoreManager.generateNewEntityId(polarisContext).getId())
+            .setCreateTimestamp(System.currentTimeMillis())
+            .setCatalogId(catalogEntity.getId())
+            .setParentId(namespace.getEntity().getId())
+            .setBaseLocation(STORAGE_LOCATION + "/icechunk/repo/")
+            .build();
+    assertThat(metaStoreManager.createEntityIfNotExists(polarisContext, path, repo).isSuccess())
+        .isTrue();
+
+    var builder =
+        catalog()
+            .buildTable(TableIdentifier.of(ns, "iceberg-table"), SCHEMA)
+            .withLocation(STORAGE_LOCATION + "/" + relativeLocation);
+    if (overlaps) {
+      assertThatThrownBy(builder::create)
+          .isInstanceOf(ForbiddenException.class)
+          .hasMessageContaining("Unable to create entity at location")
+          .hasMessageContaining("conflicts with existing table or namespace");
+    } else {
+      assertThatCode(builder::create).doesNotThrowAnyException();
+    }
+  }
+
+  /**
+   * Creates an Icechunk table at a location that overlaps an Iceberg table in another namespace.
+   * Only the optimized sibling check compares entities across namespaces. Its JDBC and NoSQL
+   * implementations look up the location index by the catalog id of the new table.
+   */
+  @ParameterizedTest
+  @CsvSource({
+    "shared/tbl, true",
+    "shared/tbl/child, true",
+    "shared, true",
+    "shared/tbl-other, false"
+  })
+  public void testIcechunkTableLocationOverlapAcrossNamespaces(
+      String relativeLocation, boolean overlaps) {
+    Namespace icebergNamespace = Namespace.of("ns-iceberg-owner");
+    Namespace icechunkNamespace = Namespace.of("ns-icechunk-candidate");
+    catalog().createNamespace(icebergNamespace);
+    catalog().createNamespace(icechunkNamespace);
+    catalog()
+        .buildTable(TableIdentifier.of(icebergNamespace, "tbl"), SCHEMA)
+        .withLocation(STORAGE_LOCATION + "/shared/tbl")
+        .create();
+    IcechunkTableCatalog icechunkCatalog =
+        new IcechunkTableCatalog(
+            metaStoreManager,
+            polarisContext,
+            new PolarisPassthroughResolutionView(
+                resolutionManifestFactory, authenticatedRoot, CATALOG_NAME),
+            new LocationOverlapValidator(
+                realmConfig,
+                metaStoreManager,
+                polarisContext,
+                name ->
+                    resolutionManifestFactory.createResolutionManifest(authenticatedRoot, name)));
+
+    ThrowingCallable create =
+        () ->
+            icechunkCatalog.createIcechunkTable(
+                TableIdentifier.of(icechunkNamespace, "repo"),
+                STORAGE_LOCATION + "/" + relativeLocation,
+                Map.of());
+    if (!realmConfig.getConfig(FeatureConfiguration.OPTIMIZED_SIBLING_CHECK)) {
+      // This catalog allows unstructured table locations, so the list-based check is not enough.
+      assertThatThrownBy(create)
+          .isInstanceOf(IllegalStateException.class)
+          .hasMessageContaining("This is not a safe combination of configurations");
+    } else if (overlaps) {
+      assertThatThrownBy(create)
+          .isInstanceOf(ForbiddenException.class)
+          .hasMessageContaining("conflicts with existing table or namespace");
+    } else {
+      assertThatCode(create).doesNotThrowAnyException();
+    }
   }
 
   @Test

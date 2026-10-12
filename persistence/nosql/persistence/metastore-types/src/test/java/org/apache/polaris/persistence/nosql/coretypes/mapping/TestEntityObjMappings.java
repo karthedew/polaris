@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.stream.Stream;
 import org.apache.polaris.core.entity.PolarisEntitySubType;
 import org.apache.polaris.core.entity.PolarisEntityType;
+import org.apache.polaris.persistence.nosql.api.obj.ObjTypes;
 import org.assertj.core.api.SoftAssertions;
 import org.assertj.core.api.junit.jupiter.InjectSoftAssertions;
 import org.assertj.core.api.junit.jupiter.SoftAssertionsExtension;
@@ -100,6 +101,9 @@ public class TestEntityObjMappings {
 
     var objType = EntityObjMappings.objTypeForPolarisType(entityType, subType);
     soft.assertThat(objType).isNotNull();
+    soft.assertThat(ObjTypes.objTypeById(objType.id())).isEqualTo(objType);
+    soft.assertThat(ObjTypes.objTypeById(objType.id()).targetClass())
+        .isEqualTo(objType.targetClass());
     var entityTypeAndSubType = EntityObjMappings.entityTypeAndSubType(objType);
     soft.assertThat(entityTypeAndSubType)
         .isNotNull()

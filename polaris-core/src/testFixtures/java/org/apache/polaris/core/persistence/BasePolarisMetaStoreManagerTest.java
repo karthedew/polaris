@@ -36,9 +36,11 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.entity.AsyncTaskType;
+import org.apache.polaris.core.entity.EntityNameLookupRecord;
 import org.apache.polaris.core.entity.PolarisBaseEntity;
 import org.apache.polaris.core.entity.PolarisEntity;
 import org.apache.polaris.core.entity.PolarisEntityConstants;
+import org.apache.polaris.core.entity.PolarisEntityCore;
 import org.apache.polaris.core.entity.PolarisEntitySubType;
 import org.apache.polaris.core.entity.PolarisEntityType;
 import org.apache.polaris.core.entity.PolarisTaskConstants;
@@ -149,6 +151,112 @@ public abstract class BasePolarisMetaStoreManagerTest {
         .containsExactlyInAnyOrder(PolarisEntity.toCore(task1), PolarisEntity.toCore(task2));
 
     Assertions.assertThat(createdEntities).containsExactlyInAnyOrderElementsOf(listedEntities);
+  }
+
+  @Test
+  protected void testIcechunkTableLifecycle() {
+    PolarisMetaStoreManager metaStoreManager = polarisTestMetaStoreManager.polarisMetaStoreManager;
+    PolarisCallContext callCtx = polarisTestMetaStoreManager.polarisCallContext;
+    PolarisBaseEntity catalog = polarisTestMetaStoreManager.createTestCatalog("icechunk-catalog");
+    PolarisBaseEntity namespace =
+        polarisTestMetaStoreManager.createEntity(
+            List.of(catalog), PolarisEntityType.NAMESPACE, "icechunk-ns");
+    List<PolarisEntityCore> path = List.of(catalog, namespace);
+    PolarisBaseEntity table =
+        polarisTestMetaStoreManager.createEntity(
+            path,
+            PolarisEntityType.TABLE_LIKE,
+            PolarisEntitySubType.ICECHUNK_TABLE,
+            "repo",
+            Map.of(
+                PolarisEntityConstants.ENTITY_BASE_LOCATION,
+                "s3://bucket/repo/",
+                "description",
+                "original"));
+
+    for (PolarisEntitySubType subType :
+        List.of(PolarisEntitySubType.ICECHUNK_TABLE, PolarisEntitySubType.ANY_SUBTYPE)) {
+      PolarisBaseEntity stored =
+          metaStoreManager
+              .readEntityByName(callCtx, path, PolarisEntityType.TABLE_LIKE, subType, "repo")
+              .getEntity();
+      Assertions.assertThat(stored).isNotNull();
+      Assertions.assertThat(stored.getId()).isEqualTo(table.getId());
+      Assertions.assertThat(stored.getSubType()).isEqualTo(PolarisEntitySubType.ICECHUNK_TABLE);
+      Assertions.assertThat(stored.getPropertiesAsMap()).isEqualTo(table.getPropertiesAsMap());
+      Assertions.assertThat(
+              metaStoreManager.listFullEntitiesAll(
+                  callCtx, path, PolarisEntityType.TABLE_LIKE, subType))
+          .containsExactly(stored);
+      Assertions.assertThat(
+              metaStoreManager
+                  .listEntities(
+                      callCtx,
+                      path,
+                      PolarisEntityType.TABLE_LIKE,
+                      subType,
+                      PageToken.readEverything())
+                  .getEntities())
+          .containsExactly(new EntityNameLookupRecord(stored));
+    }
+    Assertions.assertThat(
+            metaStoreManager.listFullEntitiesAll(
+                callCtx, path, PolarisEntityType.TABLE_LIKE, PolarisEntitySubType.ICEBERG_TABLE))
+        .isEmpty();
+
+    PolarisBaseEntity conflictingTable =
+        new PolarisBaseEntity.Builder(table)
+            .id(metaStoreManager.generateNewEntityId(callCtx).getId())
+            .subTypeCode(PolarisEntitySubType.ICEBERG_TABLE.getCode())
+            .build();
+    Assertions.assertThat(
+            metaStoreManager
+                .createEntityIfNotExists(callCtx, path, conflictingTable)
+                .getReturnStatus())
+        .isEqualTo(BaseResult.ReturnStatus.ENTITY_ALREADY_EXISTS);
+
+    PolarisBaseEntity stored =
+        metaStoreManager
+            .loadEntity(callCtx, catalog.getId(), table.getId(), PolarisEntityType.TABLE_LIKE)
+            .getEntity();
+    PolarisBaseEntity relocated =
+        new PolarisBaseEntity.Builder(stored)
+            .propertiesAsMap(
+                Map.of(
+                    PolarisEntityConstants.ENTITY_BASE_LOCATION,
+                    "s3://bucket/relocated/",
+                    "description",
+                    "updated"))
+            .build();
+    Assertions.assertThat(
+            metaStoreManager
+                .updateEntityPropertiesIfNotChanged(callCtx, path, relocated)
+                .isSuccess())
+        .isTrue();
+    stored =
+        metaStoreManager
+            .loadEntity(callCtx, catalog.getId(), table.getId(), PolarisEntityType.TABLE_LIKE)
+            .getEntity();
+    Assertions.assertThat(stored).isNotNull();
+    Assertions.assertThat(stored.getSubType()).isEqualTo(PolarisEntitySubType.ICECHUNK_TABLE);
+    Assertions.assertThat(stored.getPropertiesAsMap()).isEqualTo(relocated.getPropertiesAsMap());
+    Assertions.assertThat(
+            metaStoreManager.dropEntityIfExists(callCtx, path, stored, null, false).isSuccess())
+        .isTrue();
+    Assertions.assertThat(
+            metaStoreManager
+                .readEntityByName(
+                    callCtx,
+                    path,
+                    PolarisEntityType.TABLE_LIKE,
+                    PolarisEntitySubType.ANY_SUBTYPE,
+                    "repo")
+                .getReturnStatus())
+        .isEqualTo(BaseResult.ReturnStatus.ENTITY_NOT_FOUND);
+    Assertions.assertThat(
+            metaStoreManager.listFullEntitiesAll(
+                callCtx, path, PolarisEntityType.TABLE_LIKE, PolarisEntitySubType.ANY_SUBTYPE))
+        .isEmpty();
   }
 
   @Test

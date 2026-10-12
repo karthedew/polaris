@@ -123,6 +123,7 @@ public class PolarisEntityUtilsTest {
         Arguments.of(PolarisEntityType.TABLE_LIKE, PolarisEntitySubType.GENERIC_TABLE, false),
         Arguments.of(PolarisEntityType.TABLE_LIKE, PolarisEntitySubType.ICEBERG_TABLE, false),
         Arguments.of(PolarisEntityType.TABLE_LIKE, PolarisEntitySubType.ICEBERG_VIEW, false),
+        Arguments.of(PolarisEntityType.TABLE_LIKE, PolarisEntitySubType.ICECHUNK_TABLE, false),
         Arguments.of(PolarisEntityType.CATALOG, PolarisEntitySubType.NULL_SUBTYPE, false),
         Arguments.of(PolarisEntityType.NAMESPACE, PolarisEntitySubType.NULL_SUBTYPE, false));
   }

@@ -130,7 +130,9 @@ import org.apache.polaris.core.entity.PolarisEntity;
 import org.apache.polaris.core.entity.PolarisEntitySubType;
 import org.apache.polaris.core.entity.PolarisEntityType;
 import org.apache.polaris.core.entity.TaskEntity;
+import org.apache.polaris.core.entity.table.GenericTableEntity;
 import org.apache.polaris.core.entity.table.IcebergTableLikeEntity;
+import org.apache.polaris.core.entity.table.IcechunkTableEntity;
 import org.apache.polaris.core.exceptions.CommitConflictException;
 import org.apache.polaris.core.exceptions.PolarisServiceUnavailableException;
 import org.apache.polaris.core.identity.provider.ServiceIdentityProvider;
@@ -197,6 +199,7 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
@@ -2691,6 +2694,159 @@ public abstract class AbstractLocalIcebergCatalogTest extends CatalogTests<Local
             () -> catalog.registerTable(identifier, "s3://bucket/path", false))
         .isInstanceOf(AlreadyExistsException.class)
         .hasMessageContaining("View with same name already exists");
+  }
+
+  /**
+   * Stores a table-like entity of a non-Iceberg {@code subType} directly in the metastore and
+   * returns its location.
+   */
+  private String createNonIcebergTableLike(
+      TableIdentifier identifier, PolarisEntitySubType subType) {
+    EntityResult namespace =
+        metaStoreManager.readEntityByName(
+            polarisContext,
+            List.of(catalogEntity),
+            PolarisEntityType.NAMESPACE,
+            PolarisEntitySubType.NULL_SUBTYPE,
+            identifier.namespace().toString());
+    Assertions.assertThat(namespace).returns(true, EntityResult::isSuccess);
+    String location =
+        STORAGE_LOCATION + "/" + identifier.namespace() + "/" + identifier.name() + "/";
+    long id = metaStoreManager.generateNewEntityId(polarisContext).getId();
+    PolarisEntity entity =
+        switch (subType) {
+          case GENERIC_TABLE ->
+              new GenericTableEntity.Builder(identifier, "format")
+                  .setBaseLocation(location)
+                  .setId(id)
+                  .setCatalogId(catalogEntity.getId())
+                  .setParentId(namespace.getEntity().getId())
+                  .setCreateTimestamp(System.currentTimeMillis())
+                  .build();
+          case ICECHUNK_TABLE ->
+              new IcechunkTableEntity.Builder(identifier)
+                  .setBaseLocation(location)
+                  .setId(id)
+                  .setCatalogId(catalogEntity.getId())
+                  .setParentId(namespace.getEntity().getId())
+                  .setCreateTimestamp(System.currentTimeMillis())
+                  .build();
+          default -> throw new IllegalArgumentException("Unsupported subtype: " + subType);
+        };
+    Assertions.assertThat(
+            metaStoreManager.createEntityIfNotExists(
+                polarisContext, List.of(catalogEntity, namespace.getEntity()), entity))
+        .returns(true, EntityResult::isSuccess);
+    return location;
+  }
+
+  @ParameterizedTest
+  @CsvSource({"GENERIC_TABLE, Generic table", "ICECHUNK_TABLE, Icechunk table"})
+  public void testRegisterTableRejectsExistingNonIcebergTable(
+      PolarisEntitySubType subType, String label) {
+    LocalIcebergCatalog catalog = catalog();
+    Namespace namespace = Namespace.of("register_non_iceberg_conflict");
+    TableIdentifier identifier = TableIdentifier.of(namespace, "entity");
+    catalog.createNamespace(namespace);
+    String location = createNonIcebergTableLike(identifier, subType);
+
+    // The metadata file does not exist, so reading it before the conflict check would fail
+    // differently.
+    String metadataLocation = location + "metadata/v1.metadata.json";
+    for (boolean overwrite : List.of(false, true)) {
+      Assertions.assertThatThrownBy(
+              () -> catalog.registerTable(identifier, metadataLocation, overwrite))
+          .isInstanceOf(AlreadyExistsException.class)
+          .hasMessage("%s with same name already exists: %s", label, identifier);
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource({"GENERIC_TABLE, Generic table", "ICECHUNK_TABLE, Icechunk table"})
+  public void testRegisterViewRejectsExistingNonIcebergTable(
+      PolarisEntitySubType subType, String label) {
+    LocalIcebergCatalog catalog = catalog();
+    Namespace namespace = Namespace.of("register_view_non_iceberg_conflict");
+    TableIdentifier identifier = TableIdentifier.of(namespace, "entity");
+    catalog.createNamespace(namespace);
+    String location = createNonIcebergTableLike(identifier, subType);
+
+    // The metadata file does not exist, so reading it before the conflict check would fail
+    // differently.
+    Assertions.assertThatThrownBy(
+            () -> catalog.registerView(identifier, location + "metadata/v1.metadata.json"))
+        .isInstanceOf(AlreadyExistsException.class)
+        .hasMessage("%s with same name already exists: %s", label, identifier);
+  }
+
+  @ParameterizedTest
+  @CsvSource({"GENERIC_TABLE, Generic table", "ICECHUNK_TABLE, Icechunk table"})
+  public void testCreateViewRejectsExistingNonIcebergTableWithoutWriting(
+      PolarisEntitySubType subType, String label) {
+    MeasuredFileIOFactory measured = new MeasuredFileIOFactory();
+    LocalIcebergCatalog viewCatalog = newIcebergCatalog(CATALOG_NAME, metaStoreManager, measured);
+    viewCatalog.initialize(
+        CATALOG_NAME,
+        ImmutableMap.of(
+            CatalogProperties.FILE_IO_IMPL, "org.apache.iceberg.inmemory.InMemoryFileIO"));
+    Namespace namespace = Namespace.of("view_non_iceberg_conflict");
+    TableIdentifier identifier = TableIdentifier.of(namespace, "entity");
+    viewCatalog.createNamespace(namespace);
+    createNonIcebergTableLike(identifier, subType);
+
+    Assertions.assertThatThrownBy(
+            () ->
+                viewCatalog
+                    .buildView(identifier)
+                    .withSchema(SCHEMA)
+                    .withDefaultNamespace(namespace)
+                    .withQuery("spark", VIEW_QUERY)
+                    .create())
+        .isInstanceOf(AlreadyExistsException.class)
+        .hasMessage("%s with same name already exists: %s", label, identifier);
+    Assertions.assertThat(measured.getNumOutputFiles()).as("No view metadata written").isZero();
+  }
+
+  @ParameterizedTest
+  @CsvSource({"GENERIC_TABLE, Generic table", "ICECHUNK_TABLE, Icechunk table"})
+  public void testValidateStagedTableCreateRejectsExistingNonIcebergTable(
+      PolarisEntitySubType subType, String label) {
+    LocalIcebergCatalog catalog = catalog();
+    Namespace namespace = Namespace.of("staged_non_iceberg_conflict");
+    TableIdentifier identifier = TableIdentifier.of(namespace, "entity");
+    catalog.createNamespace(namespace);
+    String location = createNonIcebergTableLike(identifier, subType);
+
+    TableMetadata metadata =
+        TableMetadata.newTableMetadata(SCHEMA, PartitionSpec.unpartitioned(), location, Map.of());
+    Assertions.assertThatThrownBy(() -> catalog.validateStagedTableCreate(identifier, metadata))
+        .isInstanceOf(AlreadyExistsException.class)
+        .hasMessage("%s with same name already exists: %s", label, identifier);
+  }
+
+  @Test
+  public void testValidateStagedTableCreateRejectsExistingView() {
+    LocalIcebergCatalog catalog = catalog();
+    Namespace namespace = Namespace.of("staged_view_conflict");
+    TableIdentifier identifier = TableIdentifier.of(namespace, "entity");
+    catalog.createNamespace(namespace);
+    catalog
+        .buildView(identifier)
+        .withSchema(SCHEMA)
+        .withDefaultNamespace(namespace)
+        .withQuery("spark", VIEW_QUERY)
+        .create();
+
+    // A staged create under the name of a view fails at stage time, not only at commit.
+    TableMetadata metadata =
+        TableMetadata.newTableMetadata(
+            SCHEMA,
+            PartitionSpec.unpartitioned(),
+            STORAGE_LOCATION + "/" + namespace + "/entity/",
+            Map.of());
+    Assertions.assertThatThrownBy(() -> catalog.validateStagedTableCreate(identifier, metadata))
+        .isInstanceOf(AlreadyExistsException.class)
+        .hasMessage("View with same name already exists: %s", identifier);
   }
 
   @ParameterizedTest

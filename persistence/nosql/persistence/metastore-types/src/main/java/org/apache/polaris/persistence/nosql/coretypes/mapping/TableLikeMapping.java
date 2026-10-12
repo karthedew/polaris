@@ -22,6 +22,7 @@ package org.apache.polaris.persistence.nosql.coretypes.mapping;
 import static org.apache.polaris.core.entity.PolarisEntitySubType.GENERIC_TABLE;
 import static org.apache.polaris.core.entity.PolarisEntitySubType.ICEBERG_TABLE;
 import static org.apache.polaris.core.entity.PolarisEntitySubType.ICEBERG_VIEW;
+import static org.apache.polaris.core.entity.PolarisEntitySubType.ICECHUNK_TABLE;
 import static org.apache.polaris.core.entity.table.IcebergTableLikeEntity.METADATA_LOCATION_KEY;
 import static org.apache.polaris.persistence.nosql.coretypes.catalog.CatalogStateObj.CATALOG_STATE_REF_NAME_PATTERN;
 
@@ -37,6 +38,7 @@ import org.apache.polaris.persistence.nosql.coretypes.catalog.CatalogStateObj;
 import org.apache.polaris.persistence.nosql.coretypes.content.GenericTableObj;
 import org.apache.polaris.persistence.nosql.coretypes.content.IcebergTableObj;
 import org.apache.polaris.persistence.nosql.coretypes.content.IcebergViewObj;
+import org.apache.polaris.persistence.nosql.coretypes.content.IcechunkTableObj;
 import org.apache.polaris.persistence.nosql.coretypes.content.TableLikeObj;
 import org.jspecify.annotations.NonNull;
 
@@ -48,6 +50,7 @@ final class TableLikeMapping<O extends TableLikeObj, B extends TableLikeObj.Buil
         Map.of(
             ICEBERG_TABLE, IcebergTableObj.TYPE,
             ICEBERG_VIEW, IcebergViewObj.TYPE,
+            ICECHUNK_TABLE, IcechunkTableObj.TYPE,
             GENERIC_TABLE, GenericTableObj.TYPE),
         CatalogStateObj.TYPE,
         CATALOG_STATE_REF_NAME_PATTERN,
@@ -60,6 +63,7 @@ final class TableLikeMapping<O extends TableLikeObj, B extends TableLikeObj.Buil
         switch (subType) {
           case ICEBERG_TABLE -> IcebergTableObj.builder();
           case ICEBERG_VIEW -> IcebergViewObj.builder();
+          case ICECHUNK_TABLE -> IcechunkTableObj.builder();
           case GENERIC_TABLE -> GenericTableObj.builder();
           default -> throw new IllegalArgumentException("Unknown or invalid subtype");
         });
@@ -77,6 +81,7 @@ final class TableLikeMapping<O extends TableLikeObj, B extends TableLikeObj.Buil
     switch (baseBuilder) {
       case IcebergTableObj.Builder ignored -> {}
       case IcebergViewObj.Builder ignored -> {}
+      case IcechunkTableObj.Builder ignored -> {}
       case GenericTableObj.Builder genericTableObjBuilder ->
           genericTableObjBuilder
               .format(Optional.ofNullable(internalProperties.remove(GenericTableEntity.FORMAT_KEY)))
@@ -99,6 +104,7 @@ final class TableLikeMapping<O extends TableLikeObj, B extends TableLikeObj.Buil
     switch (o) {
       case IcebergTableObj ignored -> {}
       case IcebergViewObj ignored -> {}
+      case IcechunkTableObj ignored -> {}
       case GenericTableObj genericTableObj -> {
         genericTableObj
             .format()

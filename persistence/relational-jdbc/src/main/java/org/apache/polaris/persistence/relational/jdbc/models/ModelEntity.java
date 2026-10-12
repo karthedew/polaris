@@ -350,7 +350,8 @@ public class ModelEntity implements Converter<PolarisBaseEntity> {
 
     if (entity.getType() == PolarisEntityType.TABLE_LIKE) {
       if (entity.getSubType() == PolarisEntitySubType.ICEBERG_TABLE
-          || entity.getSubType() == PolarisEntitySubType.ICEBERG_VIEW) {
+          || entity.getSubType() == PolarisEntitySubType.ICEBERG_VIEW
+          || entity.getSubType() == PolarisEntitySubType.ICECHUNK_TABLE) {
         builder.locationWithoutScheme(
             StorageLocation.of(
                     entity.getPropertiesAsMap().get(PolarisEntityConstants.ENTITY_BASE_LOCATION))

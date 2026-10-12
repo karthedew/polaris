@@ -50,6 +50,10 @@ request adding CHANGELOG notes for breaking (!) changes and possibly other secti
 
 ### Upgrade notes
 
+- Icechunk tables are persisted with entity subtype code `5` and NoSQL object type `ic-t`. No
+  relational (JDBC) schema migration is required. Older versions do not recognize these records:
+  upgrade all nodes that share a metastore before enabling `ENABLE_ICECHUNK_TABLES`, and do not roll
+  back to a version without Icechunk table support once Icechunk tables exist.
 - `SUPPORTED_S3_CREDENTIAL_VENDING_MECHANISMS` lists the explicit mechanisms a realm accepts; an empty
   `credentialVendingMechanism` is always allowed. Startup reports a listed mechanism with no
   installed bean as a non-severe readiness warning. Startup fails (a severe readiness issue) when no
@@ -91,6 +95,15 @@ request adding CHANGELOG notes for breaking (!) changes and possibly other secti
 
 ### New Features
 
+- Icechunk Table API (beta): create, load, list, and drop Icechunk tables, each registering one
+  Icechunk repository by its root location, under `/api/catalog/polaris/v1/{prefix}/namespaces/{namespace}/icechunk-tables`.
+  With the `Polaris-Icechunk-Table-Access-Delegation: vended-credentials` header, and through a
+  credentials endpoint, Polaris vends storage credentials scoped to the repository root (on Azure
+  Blob endpoints and on ADLS without a hierarchical namespace, SAS tokens cover the whole
+  container). Load and the credentials endpoint vend read and list access unless the client asks
+  for `access-mode=read-write`, which requires `TABLE_WRITE_DATA`; create vends read-write
+  credentials so that the client can initialize the repository. The API is disabled by default;
+  enable it with the `ENABLE_ICECHUNK_TABLES` feature flag.
 - Python CLI: added `register` support for both `tables` and `views` commands
 - Python CLI: added `namespaces update` to set and remove namespace properties
 
@@ -101,6 +114,9 @@ request adding CHANGELOG notes for breaking (!) changes and possibly other secti
 - `PolarisMetaStoreManager.hasOverlappingSiblings` and `BasePersistence.hasOverlappingSiblings` now
   take the entity's resolved parent path, so implementations exclude the entity's own ancestors
   without re-reading the parent chain from the metastore.
+- Implementations that override `hasOverlappingSiblings` must also treat `ICECHUNK_TABLE` entities
+  (subtype code `5`) as location-bearing and index their `location` property, as the JDBC, NoSQL,
+  and in-memory metastores do.
 - Apache Iceberg has been upgraded to 1.12.0. The Java REST client now encodes spaces in namespace
   and table names as `%20` instead of `+` (apache/iceberg#15989). Polaris decodes path segments
   per RFC 3986 and has always treated `+` as a literal character, so the server behaves the same for
@@ -227,6 +243,10 @@ request adding CHANGELOG notes for breaking (!) changes and possibly other secti
 - The MongoDB readiness check is now shown in `/q/health` only when the NoSQL MongoDB backend is
   selected. Other persistence backends no longer show the unused check. MongoDB deployments keep
   readiness monitoring without configuration changes.
+- Iceberg REST API: staging a table create under a name that an Iceberg view, a generic table, or
+  an Icechunk table already uses now fails with `409 Conflict` at stage time instead of succeeding
+  and failing only at commit. An idempotent table create (`Idempotency-Key`) under the name of a
+  generic table now fails with `409 Conflict` instead of `500 Internal Server Error`.
 
 ### Commits
 

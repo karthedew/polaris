@@ -33,16 +33,23 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.iceberg.catalog.Namespace;
+import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.AlreadyExistsException;
 import org.apache.iceberg.exceptions.ForbiddenException;
 import org.apache.iceberg.rest.requests.CreateNamespaceRequest;
 import org.apache.iceberg.rest.requests.CreateTableRequest;
 import org.apache.iceberg.rest.responses.LoadTableResponse;
+import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.admin.model.Catalog;
 import org.apache.polaris.core.admin.model.CatalogProperties;
 import org.apache.polaris.core.admin.model.CreateCatalogRequest;
 import org.apache.polaris.core.admin.model.FileStorageConfigInfo;
 import org.apache.polaris.core.admin.model.StorageConfigInfo;
+import org.apache.polaris.core.entity.PolarisBaseEntity;
+import org.apache.polaris.core.entity.PolarisEntitySubType;
+import org.apache.polaris.core.entity.PolarisEntityType;
+import org.apache.polaris.core.entity.table.IcechunkTableEntity;
+import org.apache.polaris.core.persistence.PolarisMetaStoreManager;
 import org.apache.polaris.service.TestServices;
 import org.apache.polaris.service.catalog.common.LocationUtils;
 import org.apache.polaris.service.types.CreateGenericTableRequest;
@@ -553,6 +560,87 @@ public class IcebergOverlappingTableTest {
                         services.realmContext(),
                         services.securityContext()))
         .isInstanceOf(AlreadyExistsException.class);
+  }
+
+  /** Stores an Icechunk table directly in the metastore. */
+  private void createIcechunkTable(TestServices services, String name, String location) {
+    PolarisMetaStoreManager metaStoreManager = services.metaStoreManager();
+    PolarisCallContext callContext = services.newCallContext();
+    PolarisBaseEntity catalogEntity =
+        metaStoreManager
+            .readEntityByName(
+                callContext,
+                null,
+                PolarisEntityType.CATALOG,
+                PolarisEntitySubType.NULL_SUBTYPE,
+                catalog)
+            .getEntity();
+    PolarisBaseEntity namespaceEntity =
+        metaStoreManager
+            .readEntityByName(
+                callContext,
+                List.of(catalogEntity),
+                PolarisEntityType.NAMESPACE,
+                PolarisEntitySubType.NULL_SUBTYPE,
+                namespace)
+            .getEntity();
+    IcechunkTableEntity table =
+        new IcechunkTableEntity.Builder(TableIdentifier.of(namespace, name))
+            .setId(metaStoreManager.generateNewEntityId(callContext).getId())
+            .setCatalogId(catalogEntity.getId())
+            .setParentId(namespaceEntity.getId())
+            .setBaseLocation(location)
+            .setCreateTimestamp(System.currentTimeMillis())
+            .build();
+    assertThat(
+            metaStoreManager
+                .createEntityIfNotExists(
+                    callContext, List.of(catalogEntity, namespaceEntity), table)
+                .isSuccess())
+        .isTrue();
+  }
+
+  @Test
+  @DisplayName("Stage create rejects the name of an existing Icechunk table before vending")
+  void testStagedCreateRejectsExistingIcechunkTable(@TempDir Path tempDir) {
+    Map<String, Object> strictServices =
+        Map.of(
+            "ALLOW_UNSTRUCTURED_TABLE_LOCATION",
+            "true",
+            "ALLOW_TABLE_LOCATION_OVERLAP",
+            "false",
+            "ALLOW_INSECURE_STORAGE_TYPES",
+            "true",
+            "SUPPORTED_CATALOG_STORAGE_TYPES",
+            List.of("FILE", "S3"));
+    TestServices services = TestServices.builder().config(strictServices).build();
+
+    String baseLocation = tempDir.toAbsolutePath().toUri().toString();
+    if (baseLocation.endsWith("/")) {
+      baseLocation = baseLocation.substring(0, baseLocation.length() - 1);
+    }
+    createCatalogAndNamespace(services, Map.of(), baseLocation);
+    createIcechunkTable(
+        services,
+        "repo",
+        String.format("%s/%s/%s/icechunk-repo/", baseLocation, catalog, namespace));
+
+    CreateTableRequest request =
+        CreateTableRequest.builder().withName("repo").withSchema(SCHEMA).stageCreate().build();
+    assertThatThrownBy(
+            () ->
+                services
+                    .restApi()
+                    .createTable(
+                        catalog,
+                        namespace,
+                        request,
+                        List.of("vended-credentials"),
+                        IDEMPOTENCY_KEY,
+                        services.realmContext(),
+                        services.securityContext()))
+        .isInstanceOf(AlreadyExistsException.class)
+        .hasMessage("Icechunk table with same name already exists: %s.repo", namespace);
   }
 
   @Test

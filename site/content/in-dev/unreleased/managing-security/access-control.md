@@ -120,6 +120,12 @@ To grant the full set of privileges (drop, list, read, write, etc.) on an object
 | TABLE_ATTACH_POLICY | Enables attaching policy to a table. |
 | TABLE_DETACH_POLICY | Enables detaching policy from a table. |
 
+Table privileges also apply to [Icechunk tables]({{% ref "../icechunk-table" %}}), including table
+privileges granted on a namespace or catalog. For an Icechunk table, `TABLE_READ_DATA` enables
+receiving credentials that read and list the whole repository, and `TABLE_WRITE_DATA` enables
+receiving credentials that can also write and delete every object under the repository root,
+including the repository's history.
+
 ### View privileges
 
 | Privilege | Description |

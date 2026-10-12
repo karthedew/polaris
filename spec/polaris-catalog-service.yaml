@@ -158,6 +158,18 @@ paths:
   /polaris/v1/{prefix}/namespaces/{namespace}/generic-tables/{generic-table}:
     $ref: './polaris-catalog-apis/generic-tables-api.yaml#/paths/~1polaris~1v1~1{prefix}~1namespaces~1{namespace}~1generic-tables~1{generic-table}'
 
+  ##############################
+  # Polaris Icechunk Table API #
+  ##############################
+  /polaris/v1/{prefix}/namespaces/{namespace}/icechunk-tables:
+    $ref: './polaris-catalog-apis/icechunk-tables-api.yaml#/paths/~1polaris~1v1~1{prefix}~1namespaces~1{namespace}~1icechunk-tables'
+
+  /polaris/v1/{prefix}/namespaces/{namespace}/icechunk-tables/{icechunk-table}:
+    $ref: './polaris-catalog-apis/icechunk-tables-api.yaml#/paths/~1polaris~1v1~1{prefix}~1namespaces~1{namespace}~1icechunk-tables~1{icechunk-table}'
+
+  /polaris/v1/{prefix}/namespaces/{namespace}/icechunk-tables/{icechunk-table}/credentials:
+    $ref: './polaris-catalog-apis/icechunk-tables-api.yaml#/paths/~1polaris~1v1~1{prefix}~1namespaces~1{namespace}~1icechunk-tables~1{icechunk-table}~1credentials'
+
   ######################
   # Polaris Policy API #
   ######################

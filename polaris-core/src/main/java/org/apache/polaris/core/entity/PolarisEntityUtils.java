@@ -30,6 +30,7 @@ import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.rest.RESTUtil;
 import org.apache.polaris.core.entity.table.GenericTableEntity;
 import org.apache.polaris.core.entity.table.IcebergTableLikeEntity;
+import org.apache.polaris.core.entity.table.IcechunkTableEntity;
 
 /**
  * Polaris-owned encoding/decoding for namespaces stored in entity internal properties.
@@ -88,6 +89,7 @@ public final class PolarisEntityUtils {
               switch (entity.getSubType()) {
                 case GENERIC_TABLE -> GenericTableEntity.of(entity);
                 case ICEBERG_TABLE, ICEBERG_VIEW -> IcebergTableLikeEntity.of(entity);
+                case ICECHUNK_TABLE -> IcechunkTableEntity.of(entity);
                 default -> null;
               };
 

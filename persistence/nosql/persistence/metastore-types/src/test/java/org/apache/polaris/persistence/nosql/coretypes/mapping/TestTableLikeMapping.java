@@ -19,12 +19,15 @@
 
 package org.apache.polaris.persistence.nosql.coretypes.mapping;
 
+import static org.apache.polaris.core.entity.NamespaceEntity.PARENT_NAMESPACE_KEY;
+import static org.apache.polaris.core.entity.PolarisEntityConstants.ENTITY_BASE_LOCATION;
 import static org.apache.polaris.core.entity.table.GenericTableEntity.DOC_KEY;
 import static org.apache.polaris.core.entity.table.GenericTableEntity.FORMAT_KEY;
 import static org.apache.polaris.core.entity.table.IcebergTableLikeEntity.METADATA_LOCATION_KEY;
 import static org.apache.polaris.persistence.nosql.coretypes.catalog.CatalogStateObj.CATALOG_STATE_REF_NAME_PATTERN;
 import static org.apache.polaris.persistence.nosql.coretypes.mapping.BaseTestMapping.MappingSample.entityWithInternalProperties;
 import static org.apache.polaris.persistence.nosql.coretypes.mapping.BaseTestMapping.MappingSample.entityWithInternalProperty;
+import static org.apache.polaris.persistence.nosql.coretypes.mapping.BaseTestMapping.MappingSample.entityWithProperty;
 
 import java.util.Map;
 import java.util.stream.Stream;
@@ -37,6 +40,7 @@ import org.apache.polaris.persistence.nosql.coretypes.catalog.CatalogStateObj;
 import org.apache.polaris.persistence.nosql.coretypes.content.GenericTableObj;
 import org.apache.polaris.persistence.nosql.coretypes.content.IcebergTableObj;
 import org.apache.polaris.persistence.nosql.coretypes.content.IcebergViewObj;
+import org.apache.polaris.persistence.nosql.coretypes.content.IcechunkTableObj;
 import org.apache.polaris.persistence.nosql.coretypes.content.TableLikeObj;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -154,6 +158,47 @@ public class TestTableLikeMapping extends BaseTestMapping {
                                         "doc",
                                         FORMAT_KEY,
                                         "format")))));
+          }
+        },
+        new TableLikeParameter(PolarisEntitySubType.ICECHUNK_TABLE, IcechunkTableObj.TYPE) {
+          @Override
+          public IcechunkTableObj.Builder objBuilder() {
+            return IcechunkTableObj.builder();
+          }
+
+          @Override
+          public Stream<MappingSample> typeVariations(MappingSample base) {
+            return storageVariations(this::objBuilder, base)
+                .flatMap(
+                    b -> {
+                      var location = "s3://bucket/icechunk-repo";
+                      var namespace = "parent%1Fnamespace";
+                      return Stream.of(
+                          b,
+                          new MappingSample(
+                              objBuilder()
+                                  .from(b.obj())
+                                  .putProperty(ENTITY_BASE_LOCATION, location)
+                                  .build(),
+                              entityWithProperty(b.entity(), ENTITY_BASE_LOCATION, location)),
+                          new MappingSample(
+                              objBuilder()
+                                  .from(b.obj())
+                                  .putInternalProperty(PARENT_NAMESPACE_KEY, namespace)
+                                  .build(),
+                              entityWithInternalProperty(
+                                  b.entity(), PARENT_NAMESPACE_KEY, namespace)),
+                          new MappingSample(
+                              objBuilder()
+                                  .from(b.obj())
+                                  .putProperty(ENTITY_BASE_LOCATION, location)
+                                  .putInternalProperty(PARENT_NAMESPACE_KEY, namespace)
+                                  .build(),
+                              entityWithInternalProperty(
+                                  entityWithProperty(b.entity(), ENTITY_BASE_LOCATION, location),
+                                  PARENT_NAMESPACE_KEY,
+                                  namespace)));
+                    });
           }
         });
   }

@@ -397,12 +397,14 @@ public interface BasePersistence extends PolicyMappingPersistence {
       long parentId);
 
   /**
-   * Check whether the base location of the specified IcebergTableLikeEntity / NamespaceEntity
-   * overlaps the base location of another entity in the same catalog.
+   * Check whether the base location of the specified location-bearing entity (an Iceberg table or
+   * view, an Icechunk table, or a namespace) overlaps the base location of another entity in the
+   * same catalog.
    *
    * <p>Despite the name, implementations do not limit the search to siblings under the same parent.
-   * They consider every table, view, and namespace in the catalog whose base location contains,
-   * equals, or is contained by the entity's base location. This is the check behind {@code
+   * They consider every location-bearing table-like entity (Iceberg tables and views, and Icechunk
+   * tables) and every namespace in the catalog whose base location contains, equals, or is
+   * contained by the entity's base location. This is the check behind {@code
    * OPTIMIZED_SIBLING_CHECK}; the fallback used when that flag is off inspects only the entities
    * directly under the same parent.
    *

@@ -102,6 +102,16 @@ public final class Profiles {
     }
   }
 
+  public static class IcechunkTableFileIntegrationProfile extends DefaultProfile {
+    @Override
+    public Map<String, String> getConfigOverrides() {
+      return ImmutableMap.<String, String>builder()
+          .putAll(super.getConfigOverrides())
+          .put("polaris.features.\"ENABLE_ICECHUNK_TABLES\"", "true")
+          .build();
+    }
+  }
+
   public static class DefaultNoSqlProfile extends DefaultProfile {
     @Override
     public Map<String, String> getConfigOverrides() {
@@ -149,6 +159,7 @@ public final class Profiles {
           .putAll(super.getConfigOverrides())
           .put("polaris.features.\"ALLOW_EXTERNAL_METADATA_FILE_LOCATION\"", "true")
           .put("polaris.features.\"ENABLE_GENERIC_TABLES\"", "true")
+          .put("polaris.features.\"ENABLE_ICECHUNK_TABLES\"", "true")
           .put(
               "polaris.features.\"ENFORCE_PRINCIPAL_CREDENTIAL_ROTATION_REQUIRED_CHECKING\"",
               "true")

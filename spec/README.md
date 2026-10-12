@@ -37,6 +37,9 @@ Apache Polaris provides the following OpenAPI specifications:
         - [generic-tables-api.yaml](polaris-catalog-apis/generic-tables-api.yaml) - Contains the specification for
           the Generic Tables API.
 
+        - [icechunk-tables-api.yaml](polaris-catalog-apis/icechunk-tables-api.yaml) - Contains the specification for
+          the Icechunk Tables API.
+
         - [notifications-api.yaml](polaris-catalog-apis/notifications-api.yaml) - Contains the specification for
           the Notifications API.
 

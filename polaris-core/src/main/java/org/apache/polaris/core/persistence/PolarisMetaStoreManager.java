@@ -465,9 +465,9 @@ public interface PolarisMetaStoreManager
       long entityId);
 
   /**
-   * Check whether the base location of the specified IcebergTableLikeEntity / NamespaceEntity
-   * overlaps the base location of another table, view, or namespace in the same catalog. The check
-   * is not limited to entities under the same parent; see {@link
+   * Check whether the base location of the specified location-bearing entity (an Iceberg table or
+   * view, an Icechunk table, or a namespace) overlaps the base location of another such entity in
+   * the same catalog. The check is not limited to entities under the same parent; see {@link
    * BasePersistence#hasOverlappingSiblings} for the exact semantics.
    *
    * @param callContext the polaris call context

@@ -123,6 +123,10 @@ public final class PolarisClient implements AutoCloseable {
     return new GenericTableApi(client, endpoints, authToken, endpoints.catalogApiEndpoint());
   }
 
+  public IcechunkTableApi icechunkTableApi(String authToken) {
+    return new IcechunkTableApi(client, endpoints, authToken, endpoints.catalogApiEndpoint());
+  }
+
   public PolicyApi policyApi(String authToken) {
     return new PolicyApi(client, endpoints, authToken, endpoints.catalogApiEndpoint());
   }
